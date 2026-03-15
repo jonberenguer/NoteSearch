@@ -1,0 +1,24 @@
+{
+  "_comment": "NoteSearch configuration — edit this file to change your notes directory and preferences.",
+  "notesDir": "~/notes",
+  "port": 3131,
+  "extensions": [
+    "md", "txt", "js", "ts", "jsx", "tsx",
+    "py", "sh", "bash", "zsh", "fish",
+    "json", "yaml", "yml", "toml", "env",
+    "conf", "cfg", "ini",
+    "rb", "go", "rs", "c", "cpp", "h",
+    "java", "cs", "php",
+    "html", "css", "sql",
+    "r", "lua", "vim"
+  ],
+  "maxFileSize": 1048576,
+  "contextLines": 3,
+  "maxResults": 50,
+  "reindexInterval": 30000,
+  "window": {
+    "width": 1100,
+    "height": 800,
+    "rememberPosition": true
+  }
+}

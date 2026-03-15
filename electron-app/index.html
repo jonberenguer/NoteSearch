@@ -1,0 +1,1045 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy"
+  content="default-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; script-src 'self' 'unsafe-inline';">
+<title>NoteSearch</title>
+<link id="googleFontsLink" rel="preconnect" href="https://fonts.googleapis.com">
+<link id="googleFontsSheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,300;0,400;0,500;0,700;1,400&family=Syne:wght@400;700;800&display=swap" rel="stylesheet">
+<style>
+/* ─── Reset & Variables ─────────────────────────────────────────── */
+:root {
+  --bg:           #0a0a0f;
+  --surface:      #111118;
+  --surface2:     #1a1a24;
+  --border:       #2a2a3a;
+  --accent:       #7c6dfa;
+  --accent2:      #4fffb0;
+  --accent3:      #ff6b6b;
+  --text:         #e8e8f0;
+  --muted:        #5a5a7a;
+  --match-bg:     rgba(124,109,250,0.15);
+  --exact-bg:     rgba(79,255,176,0.10);
+  --drag-height:  28px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'JetBrains Mono', monospace;
+  height: 100vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  user-select: none;
+}
+
+/* Scanlines */
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background: repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.03) 2px,rgba(0,0,0,0.03) 4px);
+  pointer-events: none; z-index: 9999;
+}
+
+/* Grid */
+body::after {
+  content: '';
+  position: fixed; inset: 0;
+  background-image:
+    linear-gradient(rgba(124,109,250,0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(124,109,250,0.04) 1px, transparent 1px);
+  background-size: 40px 40px;
+  pointer-events: none; z-index: 0;
+}
+
+/* ─── Title Bar (macOS drag region) ───────────────────────────────── */
+#titleBar {
+  -webkit-app-region: drag;
+  height: var(--drag-height);
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 10;
+}
+
+#titleBar .title {
+  font-family: 'Syne', sans-serif;
+  font-weight: 700;
+  font-size: 13px;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin: 0 auto;
+  -webkit-app-region: no-drag;
+}
+
+#titleBar .dir-label {
+  font-size: 10px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 40%;
+  -webkit-app-region: no-drag;
+}
+
+/* ─── App Shell ────────────────────────────────────────────────────── */
+#app {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+  z-index: 1;
+}
+
+/* ─── Header ────────────────────────────────────────────────────────── */
+#header {
+  padding: 20px 24px 0;
+  flex-shrink: 0;
+}
+
+.header-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.logo {
+  font-family: 'Syne', sans-serif;
+  font-weight: 800;
+  font-size: 22px;
+  letter-spacing: -0.5px;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  line-height: 1;
+}
+
+.header-stats {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--muted);
+  text-align: right;
+  line-height: 1.6;
+}
+
+.live { color: var(--accent2); }
+
+.icon-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 14px;
+  padding: 5px 8px;
+  transition: all 0.15s;
+  -webkit-app-region: no-drag;
+  flex-shrink: 0;
+}
+.icon-btn:hover { border-color: var(--accent); color: var(--accent); background: rgba(124,109,250,0.08); }
+
+/* ─── Search Bar ────────────────────────────────────────────────────── */
+.search-wrap {
+  position: relative;
+  margin-bottom: 6px;
+}
+
+.search-wrap::before {
+  content: '⌕';
+  position: absolute;
+  left: 14px; top: 50%;
+  transform: translateY(-50%);
+  font-size: 18px;
+  color: var(--accent);
+  pointer-events: none;
+  z-index: 2;
+}
+
+#searchInput {
+  width: 100%;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 13px 110px 13px 44px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 15px;
+  color: var(--text);
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  caret-color: var(--accent2);
+  user-select: text;
+}
+
+#searchInput::placeholder { color: var(--muted); }
+#searchInput:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(124,109,250,0.12), 0 0 30px rgba(124,109,250,0.06);
+}
+
+.search-meta {
+  position: absolute;
+  right: 12px; top: 50%;
+  transform: translateY(-50%);
+  display: flex; align-items: center; gap: 8px;
+}
+
+.key-hint {
+  font-size: 10px; color: var(--muted);
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  padding: 3px 7px; border-radius: 4px;
+}
+
+#resultCount { font-size: 11px; color: var(--muted); white-space: nowrap; }
+
+/* Search hint */
+.search-hint {
+  font-size: 11px; color: var(--muted);
+  margin: 0 0 12px 2px; line-height: 1.6;
+}
+.search-hint kbd {
+  font-family: 'JetBrains Mono', monospace; font-size: 10px;
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 3px; padding: 1px 5px; color: var(--accent2);
+}
+.search-hint code {
+  font-family: 'JetBrains Mono', monospace; font-size: 10px;
+  color: var(--accent); background: rgba(124,109,250,0.08);
+  padding: 1px 5px; border-radius: 3px;
+}
+
+/* ─── Filters ───────────────────────────────────────────────────────── */
+.filters {
+  display: flex; gap: 6px; flex-wrap: nowrap;
+  overflow-x: auto; padding-bottom: 2px;
+  margin-bottom: 12px; align-items: center;
+  scrollbar-width: none;
+}
+.filters::-webkit-scrollbar { display: none; }
+
+.filter-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; flex-shrink: 0; }
+
+.filter-btn {
+  background: var(--surface); border: 1px solid var(--border);
+  color: var(--muted); padding: 4px 10px;
+  border-radius: 20px; font-family: 'JetBrains Mono', monospace;
+  font-size: 11px; cursor: pointer;
+  transition: all 0.15s; white-space: nowrap; flex-shrink: 0;
+}
+.filter-btn:hover { border-color: var(--accent); color: var(--accent); }
+.filter-btn.active { background: rgba(124,109,250,0.15); border-color: var(--accent); color: var(--accent); }
+
+/* ─── Results Scroll Area ───────────────────────────────────────────── */
+#scrollArea {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 24px 24px;
+}
+
+/* ─── Loading ───────────────────────────────────────────────────────── */
+#loading { display: none; align-items: center; gap: 10px; color: var(--muted); font-size: 13px; padding: 12px 0; }
+#loading.visible { display: flex; }
+
+.spinner {
+  width: 16px; height: 16px;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ─── Empty / Missing Dir States ────────────────────────────────────── */
+#emptyState { display: none; text-align: center; padding: 60px 20px; color: var(--muted); }
+#emptyState.visible { display: block; }
+
+#missingDirState {
+  display: none; text-align: center;
+  padding: 60px 20px; color: var(--muted);
+}
+#missingDirState.visible { display: flex; flex-direction: column; align-items: center; gap: 16px; }
+
+.empty-icon { font-size: 40px; margin-bottom: 12px; opacity: 0.3; }
+.empty-text { font-size: 14px; }
+.empty-sub  { font-size: 12px; margin-top: 6px; opacity: 0.6; }
+
+.action-btn {
+  background: rgba(124,109,250,0.12);
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  padding: 10px 20px; border-radius: 6px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px; cursor: pointer;
+  transition: all 0.15s;
+}
+.action-btn:hover { background: rgba(124,109,250,0.22); }
+
+/* ─── Results ───────────────────────────────────────────────────────── */
+#results { display: flex; flex-direction: column; gap: 10px; }
+
+.result-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 8px; overflow: hidden;
+  transition: border-color 0.15s, transform 0.15s;
+  animation: fadeSlide 0.18s ease both;
+}
+.result-card:hover { border-color: rgba(124,109,250,0.4); transform: translateX(2px); }
+
+@keyframes fadeSlide {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0);   }
+}
+.result-card:nth-child(2) { animation-delay: 0.03s; }
+.result-card:nth-child(3) { animation-delay: 0.06s; }
+.result-card:nth-child(4) { animation-delay: 0.09s; }
+.result-card:nth-child(5) { animation-delay: 0.12s; }
+
+.file-header {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 14px;
+  background: var(--surface2);
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+}
+
+.file-ext {
+  font-size: 10px; font-weight: 700;
+  padding: 2px 6px; border-radius: 4px;
+  text-transform: uppercase; letter-spacing: 0.5px; flex-shrink: 0;
+}
+
+/* Extension colours */
+.ext-js,.ext-ts,.ext-jsx,.ext-tsx { background:rgba(247,220,111,.15); color:#f7dc6f; }
+.ext-py                            { background:rgba(79,195,247,.15);  color:#4fc3f7; }
+.ext-sh,.ext-bash,.ext-zsh,.ext-fish{ background:rgba(102,187,106,.15);color:#66bb6a; }
+.ext-md,.ext-txt                   { background:rgba(206,147,216,.15); color:#ce93d8; }
+.ext-json,.ext-yaml,.ext-yml,.ext-toml{ background:rgba(255,183,77,.15); color:#ffb74d; }
+.ext-html,.ext-css                 { background:rgba(239,154,154,.15); color:#ef9a9a; }
+.ext-sql                           { background:rgba(128,222,234,.15); color:#80deea; }
+.ext-go,.ext-rs,.ext-c,.ext-cpp    { background:rgba(161,196,253,.15); color:#a1c4fd; }
+.ext-rb,.ext-php,.ext-java         { background:rgba(255,138,101,.15); color:#ff8a65; }
+.ext-default                       { background:rgba(255,255,255,.07); color:var(--muted); }
+
+.file-path { flex: 1; min-width: 0; }
+.file-name { font-size: 13px; font-weight: 500; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.file-dir  { font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.file-badges { display: flex; gap: 6px; align-items: center; flex-shrink: 0; }
+.badge { font-size: 10px; padding: 2px 6px; border-radius: 3px; font-weight: 500; }
+.badge-name  { background:rgba(124,109,250,0.15); color:var(--accent); border:1px solid rgba(124,109,250,.3); }
+.badge-count { background:rgba(255,255,255,0.05); color:var(--muted); border:1px solid var(--border); }
+
+/* Context menu buttons on card */
+.card-actions { display: flex; gap: 4px; flex-shrink: 0; }
+
+.card-action-btn {
+  background: transparent; border: 1px solid var(--border);
+  color: var(--muted); border-radius: 4px;
+  padding: 3px 7px; font-size: 10px;
+  cursor: pointer; transition: all 0.15s;
+  font-family: 'JetBrains Mono', monospace;
+}
+.card-action-btn:hover { border-color: var(--accent2); color: var(--accent2); }
+.card-action-btn.reveal:hover { border-color: var(--accent); color: var(--accent); }
+
+.expand-toggle { color: var(--muted); font-size: 11px; transition: transform 0.2s; flex-shrink: 0; }
+.result-card.expanded .expand-toggle { transform: rotate(180deg); }
+
+/* Snippets */
+.snippets { display: none; flex-direction: column; }
+.result-card.expanded .snippets { display: flex; }
+
+.snippet { border-top: 1px solid var(--border); }
+
+.snippet-meta {
+  display: flex; align-items: center; gap: 8px;
+  padding: 7px 14px 5px;
+  font-size: 11px; color: var(--muted);
+  background: rgba(0,0,0,0.2);
+}
+
+.match-type {
+  font-size: 10px; padding: 1px 6px;
+  border-radius: 3px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.5px;
+}
+.match-exact  { background:rgba(79,255,176,.12);  color:var(--accent2); border:1px solid rgba(79,255,176,.25); }
+.match-fuzzy  { background:rgba(124,109,250,.12); color:var(--accent);  border:1px solid rgba(124,109,250,.25); }
+
+.code-block {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px; line-height: 1.7;
+  overflow-x: auto; padding: 4px 0 10px;
+}
+
+.code-line { display: flex; align-items: flex-start; padding: 1px 14px; transition: background 0.1s; }
+.code-line:hover { background: rgba(255,255,255,0.02); }
+.code-line.is-match { background: var(--match-bg); border-left: 2px solid var(--accent); padding-left: 12px; }
+.code-line.is-match.exact { background: var(--exact-bg); border-left-color: var(--accent2); }
+
+.line-num {
+  color: var(--muted); min-width: 38px; text-align: right;
+  margin-right: 14px; user-select: none;
+  font-size: 10px; padding-top: 1px; flex-shrink: 0;
+}
+.line-content { flex: 1; white-space: pre-wrap; word-break: break-all; color: var(--text); }
+
+mark       { background:rgba(124,109,250,.35); color:var(--accent); border-radius:2px; padding:0 1px; }
+mark.exact { background:rgba(79,255,176,.25);  color:var(--accent2); }
+
+/* ─── Settings Panel ────────────────────────────────────────────────── */
+#settingsOverlay {
+  display: none;
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.7);
+  z-index: 100;
+  align-items: center; justify-content: center;
+  backdrop-filter: blur(4px);
+}
+#settingsOverlay.visible { display: flex; }
+
+#settingsPanel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  width: 520px; max-height: 80vh;
+  overflow-y: auto;
+  padding: 28px;
+  position: relative;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+}
+
+.settings-title {
+  font-family: 'Syne', sans-serif;
+  font-weight: 700; font-size: 18px;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-bottom: 24px;
+}
+
+.settings-close {
+  position: absolute; top: 16px; right: 16px;
+  background: transparent; border: 1px solid var(--border);
+  color: var(--muted); width: 28px; height: 28px;
+  border-radius: 6px; cursor: pointer;
+  font-size: 14px; line-height: 1;
+  transition: all 0.15s;
+}
+.settings-close:hover { border-color: var(--accent3); color: var(--accent3); }
+
+.settings-section { margin-bottom: 24px; }
+
+.settings-section-title {
+  font-size: 11px; text-transform: uppercase;
+  letter-spacing: 1.5px; color: var(--muted);
+  margin-bottom: 12px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border);
+}
+
+.settings-row { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+
+.settings-label { font-size: 12px; color: var(--text); flex: 1; }
+.settings-sub   { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+.settings-input {
+  background: var(--surface2); border: 1px solid var(--border);
+  color: var(--text); border-radius: 6px;
+  padding: 7px 10px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px; outline: none;
+  transition: border-color 0.15s;
+  user-select: text;
+}
+.settings-input:focus { border-color: var(--accent); }
+.settings-input.wide { flex: 1; }
+
+.dir-row { display: flex; gap: 8px; align-items: center; }
+
+.dir-input {
+  flex: 1;
+  background: var(--surface2); border: 1px solid var(--border);
+  color: var(--text); border-radius: 6px;
+  padding: 7px 10px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px; outline: none;
+  transition: border-color 0.15s;
+  user-select: text;
+}
+.dir-input:focus { border-color: var(--accent); }
+.dir-input.missing { border-color: var(--accent3); }
+
+.browse-btn {
+  background: rgba(124,109,250,0.1);
+  border: 1px solid var(--accent);
+  color: var(--accent); border-radius: 6px;
+  padding: 7px 14px; cursor: pointer;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px; white-space: nowrap;
+  transition: all 0.15s; flex-shrink: 0;
+}
+.browse-btn:hover { background: rgba(124,109,250,0.2); }
+
+.settings-save-row {
+  display: flex; gap: 10px; justify-content: flex-end;
+  margin-top: 24px; padding-top: 20px;
+  border-top: 1px solid var(--border);
+}
+
+.btn-cancel {
+  background: transparent; border: 1px solid var(--border);
+  color: var(--muted); border-radius: 6px; padding: 8px 18px;
+  font-family: 'JetBrains Mono', monospace; font-size: 12px;
+  cursor: pointer; transition: all 0.15s;
+}
+.btn-cancel:hover { border-color: var(--muted); color: var(--text); }
+
+.btn-save {
+  background: rgba(124,109,250,0.15);
+  border: 1px solid var(--accent); color: var(--accent);
+  border-radius: 6px; padding: 8px 20px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px; cursor: pointer; transition: all 0.15s;
+}
+.btn-save:hover { background: rgba(124,109,250,0.28); }
+
+.status-msg { font-size: 11px; padding: 6px 12px; border-radius: 5px; }
+.status-msg.ok  { background: rgba(79,255,176,0.1); color: var(--accent2); }
+.status-msg.err { background: rgba(255,107,107,0.1); color: var(--accent3); }
+
+/* ─── Scrollbar ─────────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+</style>
+</head>
+<body>
+
+<!-- macOS traffic-light drag region -->
+<div id="titleBar">
+  <span class="dir-label" id="titleDirLabel"></span>
+  <span class="title">NoteSearch</span>
+</div>
+
+<div id="app">
+  <div id="header">
+    <div class="header-row">
+      <div class="logo">NoteSearch</div>
+      <div class="header-stats" id="headerStats">
+        <div>Loading…</div>
+      </div>
+      <button class="icon-btn" id="settingsBtn" title="Settings (⌘,)">⚙</button>
+    </div>
+
+    <div class="search-wrap">
+      <input id="searchInput" type="text"
+        placeholder="search files, snippets, keywords…"
+        autocomplete="off" spellcheck="false" autofocus />
+      <div class="search-meta">
+        <span class="key-hint">ESC clear</span>
+        <span id="resultCount"></span>
+      </div>
+    </div>
+
+    <div class="search-hint">
+      tip: wrap words in <kbd>"quotes"</kbd> for exact phrase &nbsp;·&nbsp; e.g. <code>"docker run" container</code>
+    </div>
+
+    <div class="filters" id="filtersBar">
+      <span class="filter-label">type:</span>
+      <button class="filter-btn active" data-ext="all">all</button>
+    </div>
+  </div>
+
+  <div id="scrollArea">
+    <div id="loading"><div class="spinner"></div>searching…</div>
+
+    <div id="missingDirState">
+      <div class="empty-icon">⚠</div>
+      <div class="empty-text" id="missingDirText">Notes directory not found.</div>
+      <div class="empty-sub">Open settings to point NoteSearch at your notes folder.</div>
+      <button class="action-btn" id="missingDirBtn">Open Settings</button>
+    </div>
+
+    <div id="emptyState">
+      <div class="empty-icon">◈</div>
+      <div class="empty-text">No matches found</div>
+      <div class="empty-sub">Try a shorter query or different keywords</div>
+    </div>
+
+    <div id="results"></div>
+  </div>
+</div>
+
+<!-- ─── Settings Overlay ─────────────────────────────────────────────────── -->
+<div id="settingsOverlay">
+  <div id="settingsPanel">
+    <div class="settings-title">Settings</div>
+    <button class="settings-close" id="settingsClose">✕</button>
+
+    <div class="settings-section">
+      <div class="settings-section-title">Notes Directory</div>
+      <div class="dir-row">
+        <input type="text" id="cfgNotesDir" class="dir-input" placeholder="~/notes" spellcheck="false" />
+        <button class="browse-btn" id="browseDirBtn">Browse…</button>
+      </div>
+      <div class="empty-sub" style="margin-top:6px" id="dirValidation"></div>
+    </div>
+
+    <div class="settings-section">
+      <div class="settings-section-title">Search</div>
+      <div class="settings-row">
+        <div>
+          <div class="settings-label">Max results</div>
+          <div class="settings-sub">Maximum number of files shown per search</div>
+        </div>
+        <input type="number" id="cfgMaxResults" class="settings-input" min="10" max="500" style="width:70px">
+      </div>
+      <div class="settings-row">
+        <div>
+          <div class="settings-label">Context lines</div>
+          <div class="settings-sub">Lines of code shown above/below each match</div>
+        </div>
+        <input type="number" id="cfgContextLines" class="settings-input" min="0" max="10" style="width:70px">
+      </div>
+      <div class="settings-row">
+        <div>
+          <div class="settings-label">Max file size</div>
+          <div class="settings-sub">Files larger than this are skipped (bytes)</div>
+        </div>
+        <input type="number" id="cfgMaxFileSize" class="settings-input" min="1024" step="1024" style="width:100px">
+      </div>
+    </div>
+
+    <div class="settings-section">
+      <div class="settings-section-title">Index</div>
+      <div class="settings-row">
+        <div>
+          <div class="settings-label">Re-index interval (ms)</div>
+          <div class="settings-sub">How often to rescan your notes folder</div>
+        </div>
+        <input type="number" id="cfgReindexInterval" class="settings-input" min="5000" step="1000" style="width:90px">
+      </div>
+      <div class="settings-row">
+        <div>
+          <div class="settings-label">File extensions</div>
+          <div class="settings-sub">Comma-separated list of extensions to index</div>
+        </div>
+      </div>
+      <input type="text" id="cfgExtensions" class="settings-input wide" placeholder="md, txt, js, py…" spellcheck="false" style="width:100%">
+    </div>
+
+    <div class="settings-section">
+      <div class="settings-section-title">Fonts</div>
+      <div class="settings-row">
+        <div>
+          <div class="settings-label" id="fontStatusLabel">Loading font info…</div>
+          <div class="settings-sub" id="fontStatusSub"></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="settingsStatus"></div>
+
+    <div class="settings-save-row">
+      <button class="btn-cancel" id="settingsCancelBtn">Cancel</button>
+      <button class="btn-save" id="settingsSaveBtn">Save & Re-index</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─── State ────────────────────────────────────────────────────────────────────
+let CONFIG       = null;
+let allResults   = [];
+let activeExt    = 'all';
+let lastQuery    = '';
+let debounceTimer = null;
+
+// ─── DOM refs ─────────────────────────────────────────────────────────────────
+const searchInput    = document.getElementById('searchInput');
+const resultsEl      = document.getElementById('results');
+const resultCountEl  = document.getElementById('resultCount');
+const loadingEl      = document.getElementById('loading');
+const emptyEl        = document.getElementById('emptyState');
+const missingDirEl   = document.getElementById('missingDirState');
+const filtersBar     = document.getElementById('filtersBar');
+const headerStats    = document.getElementById('headerStats');
+const titleDirLabel  = document.getElementById('titleDirLabel');
+
+// Settings
+const settingsOverlay  = document.getElementById('settingsOverlay');
+const settingsBtn      = document.getElementById('settingsBtn');
+const settingsClose    = document.getElementById('settingsClose');
+const settingsCancelBtn= document.getElementById('settingsCancelBtn');
+const settingsSaveBtn  = document.getElementById('settingsSaveBtn');
+const browseDirBtn     = document.getElementById('browseDirBtn');
+const missingDirBtn    = document.getElementById('missingDirBtn');
+const dirValidation    = document.getElementById('dirValidation');
+const fontStatusLabel  = document.getElementById('fontStatusLabel');
+const fontStatusSub    = document.getElementById('fontStatusSub');
+const settingsStatus   = document.getElementById('settingsStatus');
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
+async function init() {
+  const { config, indexCount } = await window.noteSearch.getConfig();
+  CONFIG = config;
+  applyConfig(config, indexCount);
+
+  // Refresh filter bar stats
+  const stats = await window.noteSearch.getStats();
+  buildFilterBtns(stats.extensions);
+}
+
+function applyConfig(config, indexCount) {
+  CONFIG = config;
+
+  titleDirLabel.textContent = config.notesDir || '';
+
+  if (config.notesDirMissing) {
+    missingDirEl.classList.add('visible');
+    document.getElementById('missingDirText').textContent =
+      `Notes directory not found: ${config.notesDir}`;
+    headerStats.innerHTML = '<div style="color:var(--accent3)">⚠ directory missing</div>';
+  } else {
+    missingDirEl.classList.remove('visible');
+    updateHeaderStats(config.notesDir, indexCount);
+  }
+}
+
+function updateHeaderStats(notesDir, count) {
+  const dir = notesDir ? notesDir.replace(/^.*[\\/]/, '') : '—';
+  headerStats.innerHTML =
+    `<div><span class="live">●</span> ${count} files indexed</div>` +
+    `<div title="${notesDir || ''}">${dir}</div>`;
+}
+
+// ─── IPC Events ───────────────────────────────────────────────────────────────
+window.noteSearch.onIndexUpdated(({ count }) => {
+  if (CONFIG) updateHeaderStats(CONFIG.notesDir, count);
+});
+
+window.noteSearch.onConfigChanged(({ config, indexCount }) => {
+  applyConfig(config, indexCount);
+  window.noteSearch.getStats().then(stats => buildFilterBtns(stats.extensions));
+  // Re-run current search with new index
+  if (lastQuery) doSearch(lastQuery);
+});
+
+window.noteSearch.onOpenSettings(() => openSettings());
+
+// ─── Search ───────────────────────────────────────────────────────────────────
+searchInput.addEventListener('input', () => {
+  clearTimeout(debounceTimer);
+  const q = searchInput.value.trim();
+  if (q === lastQuery) return;
+  lastQuery = q;
+  if (!q) { allResults = []; renderResults(); resultCountEl.textContent = ''; return; }
+  loadingEl.classList.add('visible');
+  debounceTimer = setTimeout(() => doSearch(q), 80);
+});
+
+searchInput.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    searchInput.value = ''; lastQuery = ''; allResults = [];
+    renderResults(); resultCountEl.textContent = '';
+  }
+});
+
+async function doSearch(q) {
+  try {
+    allResults = await window.noteSearch.search(q) || [];
+    renderResults();
+  } catch (err) {
+    console.error('Search error:', err);
+  } finally {
+    loadingEl.classList.remove('visible');
+  }
+}
+
+// ─── Filters ──────────────────────────────────────────────────────────────────
+function buildFilterBtns(exts) {
+  const existing = filtersBar.querySelectorAll('[data-ext]:not([data-ext="all"])');
+  existing.forEach(b => b.remove());
+  const sorted = Object.entries(exts).sort((a,b) => b[1]-a[1]).slice(0, 14);
+  for (const [ext, count] of sorted) {
+    const btn = document.createElement('button');
+    btn.className = 'filter-btn';
+    btn.dataset.ext = ext;
+    btn.textContent = `.${ext} (${count})`;
+    btn.addEventListener('click', () => setFilter(ext));
+    filtersBar.appendChild(btn);
+  }
+}
+
+filtersBar.addEventListener('click', e => {
+  if (e.target.dataset.ext) setFilter(e.target.dataset.ext);
+});
+
+function setFilter(ext) {
+  activeExt = ext;
+  filtersBar.querySelectorAll('.filter-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.ext === ext);
+  });
+  renderResults();
+}
+
+// ─── Render ───────────────────────────────────────────────────────────────────
+function renderResults() {
+  const filtered = activeExt === 'all' ? allResults : allResults.filter(r => r.ext === activeExt);
+
+  resultCountEl.textContent = filtered.length ? `${filtered.length} results` : '';
+  emptyEl.classList.toggle('visible', lastQuery.length > 0 && filtered.length === 0 && !CONFIG?.notesDirMissing);
+  resultsEl.innerHTML = '';
+
+  for (const r of filtered) resultsEl.appendChild(buildCard(r));
+}
+
+function extClass(ext) {
+  const known = ['js','ts','jsx','tsx','py','sh','bash','zsh','fish','md','txt',
+    'json','yaml','yml','toml','html','css','sql','go','rs','c','cpp','rb','php','java'];
+  return known.includes(ext) ? `ext-${ext}` : 'ext-default';
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function highlight(text, tokens) {
+  if (!tokens || tokens.length === 0) return escHtml(text);
+  const marks = new Array(text.length).fill(null);
+  const tl = text.toLowerCase();
+
+  for (const token of tokens) {
+    const v = token.value.toLowerCase();
+    if (token.type === 'phrase') {
+      let from = 0;
+      while (true) {
+        const idx = tl.indexOf(v, from);
+        if (idx === -1) break;
+        for (let i = idx; i < idx + v.length; i++) marks[i] = 'phrase';
+        from = idx + 1;
+      }
+    } else {
+      const exactIdx = tl.indexOf(v);
+      if (exactIdx !== -1) {
+        for (let i = exactIdx; i < exactIdx + v.length; i++) marks[i] = marks[i] || 'exact';
+      } else {
+        let pi = 0;
+        for (let i = 0; i < tl.length && pi < v.length; i++) {
+          if (tl[i] === v[pi]) { marks[i] = marks[i] || 'fuzzy'; pi++; }
+        }
+      }
+    }
+  }
+
+  let out = '', i = 0;
+  while (i < text.length) {
+    const m = marks[i];
+    if (!m) { out += escHtml(text[i++]); continue; }
+    let j = i;
+    while (j < text.length && marks[j] === m) j++;
+    const cls = (m === 'phrase' || m === 'exact') ? ' class="exact"' : '';
+    out += `<mark${cls}>${escHtml(text.slice(i, j))}</mark>`;
+    i = j;
+  }
+  return out;
+}
+
+function buildCard(r) {
+  const card = document.createElement('div');
+  card.className = 'result-card' + (r.lineMatches.length > 0 ? ' expanded' : '');
+  const hasSnippets = r.lineMatches.length > 0;
+
+  // ── File header ──
+  const header = document.createElement('div');
+  header.className = 'file-header';
+  header.innerHTML =
+    `<span class="file-ext ${extClass(r.ext)}">${r.ext || '?'}</span>` +
+    `<div class="file-path">` +
+      `<div class="file-name">${escHtml(r.fileName)}</div>` +
+      `<div class="file-dir">${escHtml(r.dir && r.dir !== '.' ? r.dir : '/')}</div>` +
+    `</div>` +
+    `<div class="file-badges">` +
+      (r.nameMatch ? `<span class="badge badge-name">filename</span>` : '') +
+      (hasSnippets ? `<span class="badge badge-count">${r.lineMatches.length} match${r.lineMatches.length > 1 ? 'es' : ''}</span>` : '') +
+    `</div>` +
+    `<div class="card-actions">` +
+      `<button class="card-action-btn open-btn" title="Open file">open</button>` +
+      `<button class="card-action-btn reveal reveal-btn" title="Show in Finder/Explorer">reveal</button>` +
+    `</div>` +
+    (hasSnippets ? `<span class="expand-toggle">▾</span>` : '');
+
+  header.querySelector('.open-btn').addEventListener('click', e => {
+    e.stopPropagation();
+    window.noteSearch.openFile(r.filePath);
+  });
+  header.querySelector('.reveal-btn').addEventListener('click', e => {
+    e.stopPropagation();
+    window.noteSearch.revealFile(r.filePath);
+  });
+  header.addEventListener('click', () => {
+    if (hasSnippets) card.classList.toggle('expanded');
+  });
+  card.appendChild(header);
+
+  // ── Snippets ──
+  if (hasSnippets) {
+    const snippetsEl = document.createElement('div');
+    snippetsEl.className = 'snippets';
+
+    for (const match of r.lineMatches) {
+      const snip = document.createElement('div');
+      snip.className = 'snippet';
+
+      const meta = document.createElement('div');
+      meta.className = 'snippet-meta';
+      const typeClass = (match.type === 'phrase' || match.type === 'exact') ? 'match-exact' : 'match-fuzzy';
+      meta.innerHTML =
+        `<span class="match-type ${typeClass}">${match.type}</span>` +
+        `<span>line ${match.lineIndex + 1}</span>`;
+      snip.appendChild(meta);
+
+      const codeBlock = document.createElement('div');
+      codeBlock.className = 'code-block';
+
+      for (const cl of match.context.lines) {
+        const lineEl = document.createElement('div');
+        const isExact = match.type === 'phrase' || match.type === 'exact';
+        lineEl.className = 'code-line' + (cl.isMatch ? (' is-match' + (isExact ? ' exact' : '')) : '');
+        lineEl.innerHTML =
+          `<span class="line-num">${cl.num}</span>` +
+          `<span class="line-content">${cl.isMatch ? highlight(cl.text, r.tokens) : escHtml(cl.text)}</span>`;
+        codeBlock.appendChild(lineEl);
+      }
+
+      snip.appendChild(codeBlock);
+      snippetsEl.appendChild(snip);
+    }
+
+    card.appendChild(snippetsEl);
+  }
+
+  return card;
+}
+
+// ─── Settings Panel ───────────────────────────────────────────────────────────
+function openSettings() {
+  if (!CONFIG) return;
+
+  // Populate fields
+  document.getElementById('cfgNotesDir').value     = CONFIG.notesDir || '';
+  document.getElementById('cfgMaxResults').value   = CONFIG.maxResults || 50;
+  document.getElementById('cfgContextLines').value = CONFIG.contextLines || 3;
+  document.getElementById('cfgMaxFileSize').value  = CONFIG.maxFileSize || 1048576;
+  document.getElementById('cfgReindexInterval').value = CONFIG.reindexInterval || 30000;
+  document.getElementById('cfgExtensions').value   = (CONFIG.extensions || []).join(', ');
+
+  const dirInput = document.getElementById('cfgNotesDir');
+  dirInput.classList.toggle('missing', !!CONFIG.notesDirMissing);
+
+  // Font status
+  if (CONFIG.localFonts) {
+    fontStatusLabel.textContent = '✓ Local fonts active (offline ready)';
+    fontStatusLabel.style.color = 'var(--accent2)';
+    fontStatusSub.textContent   = 'WOFF2 files are served from your local fonts/ directory.';
+  } else {
+    fontStatusLabel.textContent = 'Using Google Fonts CDN';
+    fontStatusLabel.style.color = 'var(--muted)';
+    fontStatusSub.textContent   = 'Run: node download-fonts.js  to cache fonts locally for offline use.';
+  }
+
+  settingsStatus.innerHTML = '';
+  settingsOverlay.classList.add('visible');
+  document.getElementById('cfgNotesDir').focus();
+}
+
+function closeSettings() {
+  settingsOverlay.classList.remove('visible');
+  searchInput.focus();
+}
+
+settingsBtn.addEventListener('click', openSettings);
+settingsClose.addEventListener('click', closeSettings);
+settingsCancelBtn.addEventListener('click', closeSettings);
+missingDirBtn.addEventListener('click', openSettings);
+
+settingsOverlay.addEventListener('click', e => {
+  if (e.target === settingsOverlay) closeSettings();
+});
+
+browseDirBtn.addEventListener('click', async () => {
+  const picked = await window.noteSearch.pickDirectory();
+  if (picked) {
+    document.getElementById('cfgNotesDir').value = picked;
+    dirValidation.textContent = '';
+    document.getElementById('cfgNotesDir').classList.remove('missing');
+  }
+});
+
+settingsSaveBtn.addEventListener('click', async () => {
+  const notesDir = document.getElementById('cfgNotesDir').value.trim();
+  const maxResults      = parseInt(document.getElementById('cfgMaxResults').value);
+  const contextLines    = parseInt(document.getElementById('cfgContextLines').value);
+  const maxFileSize     = parseInt(document.getElementById('cfgMaxFileSize').value);
+  const reindexInterval = parseInt(document.getElementById('cfgReindexInterval').value);
+  const extRaw          = document.getElementById('cfgExtensions').value;
+  const extensions      = extRaw.split(',').map(e => e.trim().toLowerCase()).filter(Boolean);
+
+  if (!notesDir) {
+    dirValidation.textContent = 'Please enter a valid directory path.';
+    dirValidation.style.color = 'var(--accent3)';
+    return;
+  }
+
+  settingsSaveBtn.textContent = 'Saving…';
+  settingsSaveBtn.disabled    = true;
+
+  const result = await window.noteSearch.saveConfig({
+    notesDir, maxResults, contextLines, maxFileSize, reindexInterval, extensions,
+  });
+
+  settingsSaveBtn.textContent = 'Save & Re-index';
+  settingsSaveBtn.disabled    = false;
+
+  if (result.ok) {
+    settingsStatus.innerHTML = '<div class="status-msg ok">✓ Settings saved. Re-indexing…</div>';
+    setTimeout(() => { settingsStatus.innerHTML = ''; closeSettings(); }, 1200);
+  } else {
+    settingsStatus.innerHTML = `<div class="status-msg err">✗ ${result.error}</div>`;
+  }
+});
+
+// Keyboard shortcut: ⌘, opens settings
+document.addEventListener('keydown', e => {
+  if ((e.metaKey || e.ctrlKey) && e.key === ',') {
+    e.preventDefault();
+    openSettings();
+  }
+  if (e.key === 'Escape' && settingsOverlay.classList.contains('visible')) {
+    closeSettings();
+  }
+});
+
+// ─── Boot ─────────────────────────────────────────────────────────────────────
+init();
+</script>
+</body>
+</html>
