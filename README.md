@@ -1,0 +1,172 @@
+# NoteSearch
+
+A zero-dependency fuzzy file search engine for your notes and code snippets.  
+Built with pure Node.js — no npm install required.
+
+---
+
+## Quick Start
+
+```bash
+# Basic: search your current directory
+node server.js
+
+# Point at your notes folder
+node server.js --dir ~/notes
+
+# Custom port + specific folder
+node server.js --dir ~/Documents/notes --port 8080
+
+# Only search certain file types
+node server.js --dir ~/notes --ext md,txt,py
+```
+
+Then open **http://localhost:3131** in your browser.
+
+---
+
+## Features
+
+- **Real-time fuzzy search** as you type (80ms debounce)
+- **Quoted phrase search** — wrap terms in `"quotes"` for exact phrase matching
+- **Mixed search** — combine quoted phrases with fuzzy tokens in a single query
+- **Exact + fuzzy matching** with smart scoring
+  - Quoted phrases must match exactly — non-matching lines are excluded entirely
+  - Exact substring matches score highest among unquoted tokens
+  - Fuzzy matches score by consecutive character runs
+  - Filename matches are weighted 1.5× over content matches
+- **Inline code snippets** with 3 lines of context above/below each match
+- **Syntax-aware** color-coded file type badges (JS, Python, Shell, Markdown, etc.)
+- **File type filters** auto-generated from your index
+- **Auto re-index** every 30 seconds + watches for file changes
+- **Offline font support** — run `download-fonts.js` once to serve fonts locally
+- **Copy path** button on each result for quick access in your editor
+- Zero dependencies — pure Node.js built-ins only
+
+---
+
+## Offline Fonts Setup
+
+By default, NoteSearch loads fonts from Google Fonts CDN. To make it fully
+offline, run the font downloader once while you have internet access:
+
+```bash
+node download-fonts.js
+```
+
+This fetches all WOFF2 font files into a `fonts/` directory and writes a
+`fonts/fonts.css` file with local paths. From that point on, `server.js`
+automatically detects and serves fonts locally — no server restart needed.
+
+The startup log will confirm which mode is active:
+
+```
+Fonts: local (offline ready)
+# or
+Fonts: Google Fonts CDN — run node download-fonts.js to go offline
+```
+
+**For your git repository**, add the binary font files to `.gitignore` but
+commit `fonts/fonts.css` so collaborators know the setup has been done.
+Anyone cloning the repo just runs `node download-fonts.js` once.
+
+```gitignore
+fonts/*.woff2
+fonts/*.woff
+fonts/*.ttf
+```
+
+---
+
+## Search Syntax
+
+| Syntax | Behavior |
+|--------|----------|
+| `docker run` | Fuzzy match both words independently |
+| `"docker run"` | Exact phrase — only lines containing `docker run` literally |
+| `"docker run" container` | Exact phrase required + fuzzy boost for `container` |
+| `"useState" "useEffect"` | Both phrases must appear on the same line |
+
+Quoted phrases are hard requirements — a file with no exact match for a quoted
+term will not appear in results at all, regardless of other tokens.
+
+---
+
+## Command Line Options
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--dir` | `$NOTES_DIR` or `cwd` | Directory to search |
+| `--port` | `3131` | Port to serve on |
+| `--ext` | See below | Comma-separated file extensions |
+
+**Default extensions:**
+```
+md, txt, js, ts, py, sh, bash, json, yaml, yml, env, conf,
+cfg, ini, toml, rb, go, rs, c, cpp, h, java, cs, php, html,
+css, sql, r, lua, vim, zsh, fish
+```
+
+---
+
+## Environment Variable
+
+Set `NOTES_DIR` to avoid typing `--dir` every time:
+
+```bash
+# In your .bashrc / .zshrc
+export NOTES_DIR=~/notes
+
+# Then just run:
+node server.js
+```
+
+---
+
+## API Endpoints
+
+| Endpoint | Description |
+|----------|-------------|
+| `GET /` | The search UI |
+| `GET /api/search?q=<query>` | JSON search results |
+| `GET /api/stats` | Index stats + extension breakdown |
+| `GET /api/reindex` | Trigger a manual re-index |
+| `GET /fonts/<file>` | Serves local font files (after running `download-fonts.js`) |
+
+---
+
+## How Scoring Works
+
+1. **Quoted phrase** (score ~110–120): Exact substring required
+   - Disqualifies the line entirely if the phrase is not found
+   - Bonus if the match starts at a word boundary
+2. **Exact token match** (score ~110–120): Unquoted token found as substring
+   - Same bonus for word-boundary alignment
+3. **Fuzzy token match** (score 1–40): All characters found in order
+   - Consecutive character runs add bonus points
+   - Higher ratio of matched chars to text length = higher score
+4. **Filename matches** are multiplied by 1.5× over content matches
+5. Nearby duplicate matches within 5 lines are de-duplicated (highest score kept)
+6. Results sorted by score, top 50 shown
+
+---
+
+## Live Re-indexing
+
+The server keeps your index fresh automatically:
+
+- **File watcher** (`fs.watch`) triggers a re-index within 500ms of any change
+- **Polling fallback** re-indexes every 30 seconds regardless (useful on Linux
+  where recursive `fs.watch` has limited platform support)
+- Files over 1MB are skipped to keep search fast
+
+---
+
+## Tips
+
+- **Short queries work well** — `arr sort` finds files about array sorting
+- **Paste partial snippets** — the first few chars of a code snippet are enough
+- **Pin with quotes** — `"function fetchUser"` zeroes in on exact definitions
+- **Mix and match** — `"git stash" apply branch` finds stash-related lines and ranks higher those mentioning `apply` or `branch`
+- **Use type filters** — click `.py` or `.sh` to narrow results to one language
+- **ESC** clears the search box instantly
