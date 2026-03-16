@@ -7,12 +7,11 @@
 > This project is provided **as-is** without warranty of any kind.
 > Review the code before use in any environment you care about.
 > Use at your own risk.
+
 # NoteSearch
 
 A zero-dependency fuzzy file search engine for your notes and code snippets.  
 Built with pure Node.js — no npm install required.
-
----
 
 ## Quick Start
 
