@@ -857,6 +857,197 @@ ${FONT_HTML_TAG}
     border-radius: 3px;
   }
 
+  /* ── File Modal ── */
+  #fileModal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 10000;
+    background: rgba(0,0,0,0.75);
+    backdrop-filter: blur(4px);
+    align-items: center;
+    justify-content: center;
+    padding: 32px 24px;
+  }
+
+  #fileModal.open { display: flex; }
+
+  .modal-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    width: 100%;
+    max-width: 900px;
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 24px 80px rgba(0,0,0,0.6);
+    animation: modalIn 0.15s ease both;
+  }
+
+  @keyframes modalIn {
+    from { opacity: 0; transform: translateY(12px) scale(0.98); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+  }
+
+  .modal-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    background: var(--surface2);
+    border-bottom: 1px solid var(--border);
+    border-radius: 10px 10px 0 0;
+    flex-shrink: 0;
+  }
+
+  .modal-title {
+    flex: 1;
+    min-width: 0;
+    font-size: 13px;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .modal-badge {
+    font-size: 10px;
+    color: var(--muted);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 2px 8px;
+    border-radius: 4px;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  .modal-close {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    padding: 3px 10px;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: all 0.15s;
+    flex-shrink: 0;
+  }
+
+  .modal-close:hover { border-color: var(--accent3); color: var(--accent3); }
+
+  .modal-body {
+    overflow-y: auto;
+    overflow-x: auto;
+    flex: 1;
+    padding: 8px 0 16px;
+  }
+
+  .modal-code-line {
+    display: flex;
+    align-items: flex-start;
+    padding: 1px 20px;
+    gap: 0;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12.5px;
+    line-height: 1.7;
+  }
+
+  .modal-code-line:hover { background: rgba(255,255,255,0.02); }
+
+  .modal-code-line.is-target {
+    background: var(--match-bg);
+    border-left: 2px solid var(--accent);
+    padding-left: 18px;
+  }
+
+  .modal-line-num {
+    color: var(--muted);
+    min-width: 52px;
+    text-align: right;
+    margin-right: 20px;
+    user-select: none;
+    font-size: 11px;
+    padding-top: 1px;
+    flex-shrink: 0;
+  }
+
+  .modal-line-content {
+    flex: 1;
+    white-space: pre;
+    color: var(--text);
+    word-break: break-all;
+    white-space: pre-wrap;
+  }
+
+  .modal-search {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+  }
+
+  #modalSearchInput {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    padding: 4px 10px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: var(--text);
+    outline: none;
+    width: 160px;
+    caret-color: var(--accent2);
+    transition: border-color 0.15s;
+  }
+
+  #modalSearchInput:focus { border-color: var(--accent); }
+  #modalSearchInput::placeholder { color: var(--muted); }
+
+  .modal-match-count {
+    font-size: 11px;
+    color: var(--muted);
+    white-space: nowrap;
+    min-width: 48px;
+    text-align: center;
+  }
+
+  .modal-match-count.no-match { color: var(--accent3); }
+
+  .modal-nav-btn {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.15s;
+    line-height: 1;
+  }
+
+  .modal-nav-btn:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+  .modal-nav-btn:disabled { opacity: 0.3; cursor: default; }
+
+  .modal-code-line.modal-match-active {
+    background: rgba(124,109,250,0.1);
+    outline: 1px solid rgba(124,109,250,0.3);
+    outline-offset: -1px;
+  }
+
+  /* ── Sticky top ── */
+  .sticky-top {
+    position: sticky;
+    top: 0;
+    z-index: 200;
+    background: var(--bg);
+    padding-top: 40px;
+    margin-top: -40px;
+    padding-bottom: 8px;
+  }
+
   /* Scrollbar */
   ::-webkit-scrollbar { width: 6px; height: 6px; }
   ::-webkit-scrollbar-track { background: transparent; }
@@ -866,37 +1057,39 @@ ${FONT_HTML_TAG}
 </head>
 <body>
 <div id="app">
-  <header>
-    <div>
-      <div class="logo">NoteSearch</div>
-      <div class="logo-tag">fuzzy file explorer</div>
-    </div>
-    <div class="header-stats" id="headerStats">
-      <div>Loading index…</div>
-    </div>
-  </header>
+  <div class="sticky-top">
+    <header>
+      <div>
+        <div class="logo">NoteSearch</div>
+        <div class="logo-tag">fuzzy file explorer</div>
+      </div>
+      <div class="header-stats" id="headerStats">
+        <div>Loading index…</div>
+      </div>
+    </header>
 
-  <div class="search-wrap">
-    <input
-      id="searchInput"
-      type="text"
-      placeholder="search files, snippets, keywords…"
-      autocomplete="off"
-      spellcheck="false"
-      autofocus
-    />
-    <div class="search-meta">
-      <span class="key-hint">ESC clear</span>
-      <span id="resultCount"></span>
+    <div class="search-wrap">
+      <input
+        id="searchInput"
+        type="text"
+        placeholder="search files, snippets, keywords…"
+        autocomplete="off"
+        spellcheck="false"
+        autofocus
+      />
+      <div class="search-meta">
+        <span class="key-hint">ESC clear</span>
+        <span id="resultCount"></span>
+      </div>
     </div>
-  </div>
-  <div class="search-hint" id="searchHint">
-    tip: wrap words in <kbd>"quotes"</kbd> for exact phrase matching &nbsp;·&nbsp; e.g. <code>"docker run" container</code>
-  </div>
+    <div class="search-hint" id="searchHint">
+      tip: wrap words in <kbd>"quotes"</kbd> for exact phrase matching &nbsp;·&nbsp; e.g. <code>"docker run" container</code>
+    </div>
 
-  <div class="filters" id="filtersBar">
-    <span class="filter-label">type:</span>
-    <button class="filter-btn active" data-ext="all">all</button>
+    <div class="filters" id="filtersBar">
+      <span class="filter-label">type:</span>
+      <button class="filter-btn active" data-ext="all">all</button>
+    </div>
   </div>
 
   <div id="loading"><div class="spinner"></div>searching…</div>
@@ -906,6 +1099,23 @@ ${FONT_HTML_TAG}
     <div class="empty-sub">try a shorter query or different keywords</div>
   </div>
   <div id="results"></div>
+</div>
+
+<div id="fileModal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <span class="modal-title" id="modalTitle"></span>
+      <span class="modal-badge" id="modalBadge"></span>
+      <div class="modal-search">
+        <input type="text" id="modalSearchInput" placeholder="find in file…" autocomplete="off" spellcheck="false" />
+        <span class="modal-match-count" id="modalMatchCount"></span>
+        <button class="modal-nav-btn" id="modalPrev" title="Previous (Shift+Enter)">↑</button>
+        <button class="modal-nav-btn" id="modalNext" title="Next (Enter)">↓</button>
+      </div>
+      <button class="modal-close" id="modalClose">✕ close</button>
+    </div>
+    <div class="modal-body" id="modalBody"></div>
+  </div>
 </div>
 
 <script>
@@ -1117,9 +1327,15 @@ function buildCard(r) {
       for (const cl of match.context.lines) {
         const lineEl = document.createElement('div');
         lineEl.className = 'code-line' + (cl.isMatch ? (' is-match' + (match.type === 'exact' ? ' exact' : '')) : '');
+        lineEl.title = 'Click to open file at line ' + cl.num;
+        lineEl.style.cursor = 'pointer';
         lineEl.innerHTML =
           '<span class="line-num">' + cl.num + '</span>' +
           '<span class="line-content">' + (cl.isMatch ? highlight(cl.text, r.tokens) : escHtml(cl.text)) + '</span>';
+        lineEl.addEventListener('click', e => {
+          e.stopPropagation();
+          openModal(r.filePath, r.fileName, cl.num);
+        });
         codeBlock.appendChild(lineEl);
       }
 
@@ -1145,6 +1361,179 @@ function buildCard(r) {
 
   return card;
 }
+
+// ── File Modal ────────────────────────────────────────────────────────────────
+
+const fileModal       = document.getElementById('fileModal');
+const modalTitle      = document.getElementById('modalTitle');
+const modalBadge      = document.getElementById('modalBadge');
+const modalBody       = document.getElementById('modalBody');
+const modalClose      = document.getElementById('modalClose');
+const modalSearchInput = document.getElementById('modalSearchInput');
+const modalMatchCount  = document.getElementById('modalMatchCount');
+const modalPrev        = document.getElementById('modalPrev');
+const modalNext        = document.getElementById('modalNext');
+
+let modalLines    = []; // { el, text } for every rendered line
+let modalMatches  = []; // indices into modalLines that match the query
+let modalMatchIdx = -1;
+
+function openModal(filePath, fileName, targetLine) {
+  fetch('/api/file?path=' + encodeURIComponent(filePath))
+    .then(r => r.json())
+    .then(data => {
+      if (data.error) return;
+
+      modalTitle.textContent = data.relPath || fileName;
+      modalBadge.textContent = 'line ' + targetLine + ' of ' + data.lines.length;
+      modalBody.innerHTML = '';
+
+      let targetEl = null;
+      const frag = document.createDocumentFragment();
+      modalLines = [];
+
+      data.lines.forEach((text, i) => {
+        const lineNum = i + 1;
+        const isTarget = lineNum === targetLine;
+        const row = document.createElement('div');
+        row.className = 'modal-code-line' + (isTarget ? ' is-target' : '');
+        row.innerHTML =
+          '<span class="modal-line-num">' + lineNum + '</span>' +
+          '<span class="modal-line-content">' + escHtml(text) + '</span>';
+        if (isTarget) targetEl = row;
+        modalLines.push({ el: row, text });
+        frag.appendChild(row);
+      });
+
+      modalBody.appendChild(frag);
+      fileModal.classList.add('open');
+      document.body.style.overflow = 'hidden';
+
+      if (targetEl) {
+        requestAnimationFrame(() => {
+          targetEl.scrollIntoView({ block: 'center' });
+        });
+      }
+    })
+    .catch(err => console.error('modal fetch error', err));
+}
+
+function closeModal() {
+  fileModal.classList.remove('open');
+  document.body.style.overflow = '';
+  modalBody.innerHTML = '';
+  modalSearchInput.value = '';
+  modalLines = [];
+  modalMatches = [];
+  modalMatchIdx = -1;
+  modalMatchCount.textContent = '';
+  modalMatchCount.classList.remove('no-match');
+  updateNavBtns();
+}
+
+function highlightModalQuery(text, query) {
+  const q = query.toLowerCase();
+  const t = text.toLowerCase();
+  let out = '', i = 0;
+  while (i < text.length) {
+    const idx = t.indexOf(q, i);
+    if (idx === -1) { out += escHtml(text.slice(i)); break; }
+    out += escHtml(text.slice(i, idx));
+    out += '<mark class="exact">' + escHtml(text.slice(idx, idx + query.length)) + '</mark>';
+    i = idx + query.length;
+  }
+  return out;
+}
+
+function updateNavBtns() {
+  const has = modalMatches.length > 0;
+  modalPrev.disabled = !has;
+  modalNext.disabled = !has;
+}
+
+function jumpToModalMatch(idx) {
+  if (modalMatchIdx >= 0 && modalMatchIdx < modalMatches.length) {
+    modalLines[modalMatches[modalMatchIdx]].el.classList.remove('modal-match-active');
+  }
+  modalMatchIdx = idx;
+  const { el } = modalLines[modalMatches[idx]];
+  el.classList.add('modal-match-active');
+  el.scrollIntoView({ block: 'center' });
+  modalMatchCount.textContent = (idx + 1) + ' / ' + modalMatches.length;
+  modalMatchCount.classList.remove('no-match');
+}
+
+function findInModal(query) {
+  for (const { el, text } of modalLines) {
+    el.classList.remove('modal-match-active');
+    el.children[1].innerHTML = escHtml(text);
+  }
+  modalMatches = [];
+  modalMatchIdx = -1;
+
+  if (!query) {
+    modalMatchCount.textContent = '';
+    modalMatchCount.classList.remove('no-match');
+    updateNavBtns();
+    return;
+  }
+
+  const q = query.toLowerCase();
+  for (let i = 0; i < modalLines.length; i++) {
+    const { el, text } = modalLines[i];
+    if (text.toLowerCase().includes(q)) {
+      el.children[1].innerHTML = highlightModalQuery(text, query);
+      modalMatches.push(i);
+    }
+  }
+
+  if (modalMatches.length > 0) {
+    jumpToModalMatch(0);
+  } else {
+    modalMatchCount.textContent = 'no matches';
+    modalMatchCount.classList.add('no-match');
+    updateNavBtns();
+  }
+}
+
+modalClose.addEventListener('click', closeModal);
+
+fileModal.addEventListener('click', e => {
+  if (e.target === fileModal) closeModal();
+});
+
+modalSearchInput.addEventListener('input', () => {
+  findInModal(modalSearchInput.value);
+});
+
+modalSearchInput.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && modalMatches.length > 0) {
+    e.preventDefault();
+    const next = e.shiftKey
+      ? (modalMatchIdx - 1 + modalMatches.length) % modalMatches.length
+      : (modalMatchIdx + 1) % modalMatches.length;
+    jumpToModalMatch(next);
+  }
+  if (e.key === 'Escape') {
+    e.stopPropagation();
+    modalSearchInput.value = '';
+    findInModal('');
+  }
+});
+
+modalPrev.addEventListener('click', () => {
+  if (modalMatches.length > 0)
+    jumpToModalMatch((modalMatchIdx - 1 + modalMatches.length) % modalMatches.length);
+});
+
+modalNext.addEventListener('click', () => {
+  if (modalMatches.length > 0)
+    jumpToModalMatch((modalMatchIdx + 1) % modalMatches.length);
+});
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && fileModal.classList.contains('open')) closeModal();
+});
 </script>
 </body>
 </html>`;
@@ -1212,6 +1601,25 @@ const server = http.createServer((req, res) => {
       'Access-Control-Allow-Origin': '*',
     });
     res.end(JSON.stringify({ results, count: results.length, query }));
+    return;
+  }
+
+  // ── GET /api/file?path=...
+  if (url.pathname === '/api/file') {
+    const reqPath = url.searchParams.get('path') || '';
+    const resolved = path.resolve(reqPath);
+    // Only serve files that are inside CONFIG.dir and already in the index
+    const inIndex = INDEX.find(f => f.filePath === resolved);
+    if (!inIndex || !resolved.startsWith(CONFIG.dir)) {
+      res.writeHead(403, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'forbidden' }));
+      return;
+    }
+    res.writeHead(200, {
+      'Content-Type': 'application/json',
+      'Access-Control-Allow-Origin': '*',
+    });
+    res.end(JSON.stringify({ lines: inIndex.lines, relPath: inIndex.relPath }));
     return;
   }
 

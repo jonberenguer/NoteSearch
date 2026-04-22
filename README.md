@@ -7,11 +7,12 @@
 > This project is provided **as-is** without warranty of any kind.
 > Review the code before use in any environment you care about.
 > Use at your own risk.
-
 # NoteSearch
 
 A zero-dependency fuzzy file search engine for your notes and code snippets.  
 Built with pure Node.js — no npm install required.
+
+---
 
 ## Quick Start
 
@@ -44,6 +45,9 @@ Then open **http://localhost:3131** in your browser.
   - Fuzzy matches score by consecutive character runs
   - Filename matches are weighted 1.5× over content matches
 - **Inline code snippets** with 3 lines of context above/below each match
+- **File viewer modal** — click any result line to open the full file in a read-only overlay, scrolled to that exact line
+- **In-file search** — type inside the modal to find and step through matches with `↑` / `↓` or `Enter` / `Shift+Enter`; wraps around automatically
+- **Sticky search bar** — header, search input, and filters lock to the top of the page as you scroll through results
 - **Syntax-aware** color-coded file type badges (JS, Python, Shell, Markdown, etc.)
 - **File type filters** auto-generated from your index
 - **Auto re-index** every 30 seconds + watches for file changes
@@ -139,6 +143,7 @@ node server.js
 | `GET /api/search?q=<query>` | JSON search results |
 | `GET /api/stats` | Index stats + extension breakdown |
 | `GET /api/reindex` | Trigger a manual re-index |
+| `GET /api/file?path=<path>` | Full file content (used by the modal viewer; restricted to indexed files inside `--dir`) |
 | `GET /fonts/<file>` | Serves local font files (after running `download-fonts.js`) |
 
 ---
@@ -178,3 +183,6 @@ The server keeps your index fresh automatically:
 - **Mix and match** — `"git stash" apply branch` finds stash-related lines and ranks higher those mentioning `apply` or `branch`
 - **Use type filters** — click `.py` or `.sh` to narrow results to one language
 - **ESC** clears the search box instantly
+- **Click any result line** to open the full file in the modal viewer, jumped to that line
+- **Find in file** — once the modal is open, just start typing in the search box to locate text; `Enter` / `Shift+Enter` steps forward/backward through all matches
+- **Close the modal** with the `✕` button, clicking the backdrop, or pressing `Escape` (if the in-file search box is empty)
